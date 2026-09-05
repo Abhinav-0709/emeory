@@ -1,0 +1,26 @@
+{
+  "name": "@project-memory/interview",
+  "version": "0.1.0",
+  "description": "Project-specific interview question generator and answer evaluation engine",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@project-memory/core": "workspace:*",
+    "@google/genai": "^2.21.0",
+    "groq-sdk": "^1.6.0"
+  },
+  "keywords": ["interview", "evaluation", "project-memory"],
+  "license": "MIT"
+}
