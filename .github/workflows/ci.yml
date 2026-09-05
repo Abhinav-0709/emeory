@@ -33,11 +33,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck packages
-        run: pnpm --filter "./packages/*" typecheck
-
       - name: Build packages
         run: pnpm --filter "./packages/*" build
+
+      - name: Typecheck packages
+        run: pnpm --filter "./packages/*" typecheck
 
       - name: Verify CLI binary
         run: node packages/cli/dist/index.js help
