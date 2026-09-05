@@ -50,13 +50,25 @@ Every time you open an AI coding agent (**Cursor**, **Antigravity**, **Claude Co
 
 Any AI agent connecting through the **Model Context Protocol (MCP)** can query this persistent memory in milliseconds — without burning context windows re-reading the entire repo.
 
+### 🥊 Why Emeory? (Differentiation)
+
+| Capability | **Emeory** | Cursor / Cody Context | Traditional Vector DBs |
+| :--- | :---: | :---: | :---: |
+| **Zero Background Daemon** | ✅ **Yes** (0 MB RAM idle, plain files) | ❌ Heavy background process | ❌ Needs active database / container |
+| **Works 100% Offline** | ✅ **Deterministic AST & Intent Engine** | ❌ Requires cloud LLM | ❌ Requires cloud embeddings |
+| **Editor Agnostic** | ✅ **Universal MCP** (Cursor, Antigravity, Claude, CLI) | ❌ Locked to specific IDE | ⚠️ Custom integration needed |
+| **Git-Native Storage** | ✅ **Plain JSON & Markdown in repo** | ❌ Proprietary cache | ❌ External binary store |
+| **Drift & Discrepancy Detection** | ✅ **Flags stale decisions vs actual packages** | ❌ None | ❌ None |
+
+> 🔒 **Privacy Guarantee:** Zero telemetry. Zero data leaves your machine. Outbound requests to Groq or Gemini **only** occur when you explicitly run `emeory config set` with an API key.
+
 ---
 
 ## ⚡ Quick Start in 60 Seconds
 
 ### 1. Installation & Usage
 
-#### Option A: Run directly via package manager (No cloning required once published)
+#### Option A: Run directly via npx (Recommended — no install required)
 
 ```bash
 # Using npx (npm)
@@ -78,8 +90,8 @@ pnpm add -g emeory
 
 ```bash
 # Clone the monorepo
-git clone https://github.com/your-username/memory-project.git
-cd memory-project
+git clone https://github.com/Abhinav-0709/emeory.git
+cd emeory
 
 # Install dependencies and build all packages
 pnpm install
@@ -265,13 +277,13 @@ This writes:
 - `.cursor/mcp.json` for **Cursor**
 - `.agents/mcp_config.json` for **Antigravity**
 
-For **Claude Desktop**, add this to your `claude_desktop_config.json`:
+For **Claude Desktop**, add this to your `claude_desktop_config.json` (on macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`; on Windows: `%APPDATA%\Claude\claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
     "emeory": {
-      "command": "node",
-      "args": ["<absolute-path-to-memory-project>/packages/cli/dist/index.js", "mcp"]
+      "command": "npx",
+      "args": ["-y", "emeory", "mcp"]
     }
   }
 }
@@ -298,7 +310,10 @@ All project memory lives inside `.emeory/` at the root of your project. It requi
     └── *.md              # Human-readable markdown chunks
 ```
 
-> 🛡️ **Recommended:** Add `.emeory/` to your `.gitignore` to keep local scratch data private, or commit it if you want your whole team to share the exact same project memory!
+> 🛡️ **Defense-in-Depth Protection & Scope Boundaries:**
+> - **Secret Scanner Disclaimer:** Emeory's file scanner uses high-confidence signatures, credential context checks, and Shannon entropy analysis to skip .env, .pem, and credential tokens. This is a **best-effort safeguard** and not a substitute for enterprise tools like TruffleHog or Gitleaks. Never store un-ignored raw credentials in your repository.
+> - **Multi-Writer & Merge Strategy (Scoped for v1):** In v1.x, Emeory assumes **single-owner local state updates**. emeory init automatically adds .emeory/ to .gitignore so each developer maintains their own local project memory without merge conflicts. Multi-writer distributed conflict resolution (CRDTs / 3-way semantic merge of .emeory/ state across git branches) is scoped out of v1 and planned for future versions. Teams wishing to share memory in v1 can commit curated markdown docs in docs/adr/ which Emeory's analyzer automatically ingests.
+> - **Retrieval Model (Lexical AST vs Dense Vectors):** In v1.x, retrieval uses **deterministic lexical AST keyword indexing** and classified intent routing. This ensures zero external dependencies, 0ms startup, and 100% offline predictability. Dense semantic vector embeddings (via local ONNX / Transformers.js) are planned for the v2.0 milestone.
 
 ---
 
@@ -343,13 +358,13 @@ Emeory is in active early development. Here is our honest implementation status:
 
 - [x] **Repository Analysis**: Config scanner (Node, Go, Rust, Python, etc.)
 - [x] **Dual Memory Engine**: Structured JSON + human-readable Markdown chunks
-- [x] **Complete CLI**: Interactive REPL + 11 standalone subcommands
+- [x] **Complete CLI**: Interactive REPL + 10 standalone subcommands
 - [x] **MCP Server**: 6 working tools compatible with Cursor, Antigravity, & Claude
 - [x] **Autonomous Bundling**: Self-contained CLI bundle via `tsup`
-- [ ] **Vector Embeddings**: Dense vector search (currently lexical keyword search)
-- [ ] **Git History Ingestion**: Extracting historical context from git commits
 - [x] **npm Registry Publication**: Published and live on [npmjs.com/package/emeory](https://www.npmjs.com/package/emeory)
-- [ ] **Automated CI/CD**: GitHub Actions workflow and test suite
+- [x] **Automated CI/CD**: GitHub Actions matrix workflow (Node 20 & 22)
+- [ ] **Vector Embeddings (v2.0)**: Dense vector search via local ONNX / Transformers.js
+- [ ] **Git History Ingestion (v2.0)**: Extracting historical context from git commit graph
 
 ---
 

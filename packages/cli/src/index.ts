@@ -83,11 +83,27 @@ export function handleInit(args: string[]): void {
 
   store.initialize(identity);
 
+  // Ensure .emeory/ is in .gitignore to prevent accidental secret leakage (Risk #3)
+  const gitignorePath = path.join(cwd, '.gitignore');
+  try {
+    if (fs.existsSync(gitignorePath)) {
+      const gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8');
+      if (!gitignoreContent.includes('.emeory')) {
+        fs.appendFileSync(gitignorePath, '\n# Emeory local memory\n.emeory/\n');
+      }
+    } else {
+      fs.writeFileSync(gitignorePath, '# Emeory local memory\n.emeory/\n', 'utf-8');
+    }
+  } catch {
+    // ignore filesystem errors
+  }
+
   const analyzer = new ProjectAnalyzer(cwd);
   const summary = analyzer.analyze();
 
   const leftLines = [
     pc.green('✔') + ' Creating .emeory/ directory',
+    pc.green('✔') + ' Protected .emeory/ in .gitignore',
     pc.green('✔') + ' Analyzing project structure',
     pc.green('✔') + ` Indexing source files (${summary.filesScanned} files)`,
     pc.green('✔') + ' Extracting key context (architecture, decisions, etc.)',
@@ -293,7 +309,18 @@ export function handleSync(): void {
   console.log(pc.green('✔') + ` Updated tech stack (${summary.techStackCount} facts)`);
   console.log(pc.green('✔') + ` Updated architecture modules (${summary.componentsFound} components)`);
   console.log(pc.green('✔') + ` Synced semantic knowledge (${summary.semanticChunksCreated} entries)`);
-  console.log(pc.yellow('✨') + ' ' + pc.bold(pc.green('Project memory is synchronized!\n')));
+
+  const store = new LocalStructuredMemoryStore({ projectRoot: cwd });
+  const state = store.readState();
+  if (state?.discrepancies && state.discrepancies.length > 0) {
+    console.log(pc.yellow(`\n⚠️  ${state.discrepancies.length} discrepancy(ies) detected:`));
+    for (const disc of state.discrepancies) {
+      console.log(pc.yellow(`  • [${disc.topic}] `) + disc.claimedByDoc.statement);
+      console.log(pc.dim(`    → ${disc.actualInCode.statement}`));
+    }
+  }
+
+  console.log(pc.yellow('\n✨') + ' ' + pc.bold(pc.green('Project memory is synchronized!\n')));
 }
 
 export async function handleWeb(): Promise<void> {

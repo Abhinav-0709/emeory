@@ -401,6 +401,13 @@ export function getStatusBoxLines(
       label: 'MCP Server',
       value: mcpDisplay,
     },
+    {
+      label: 'Discrepancies',
+      value:
+        state.discrepancies && state.discrepancies.length > 0
+          ? pc.yellow(`${state.discrepancies.length} detected`) + pc.dim(' (drift / orphaned files)')
+          : pc.green('0') + pc.dim(' (in sync)'),
+    },
   ];
 
   for (const item of items) {

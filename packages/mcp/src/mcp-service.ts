@@ -52,6 +52,7 @@ export class McpMemoryService {
           dependencies: c.dependencies,
         })),
         totalDecisionsRecorded: state.decisions.length,
+        discrepancies: state.discrepancies ?? [],
       },
       null,
       2
@@ -113,7 +114,17 @@ export class McpMemoryService {
       return JSON.stringify({ error: 'Memory not initialized' });
     }
 
-    return JSON.stringify(state.decisions, null, 2);
+    return JSON.stringify(
+      {
+        decisions: state.decisions.map((d) => ({
+          ...d,
+          isAgentProposed: d.source.type === 'ai-inference' && d.status === 'proposed',
+        })),
+        discrepancies: state.discrepancies,
+      },
+      null,
+      2
+    );
   }
 
   /**
@@ -131,14 +142,15 @@ export class McpMemoryService {
 
   /**
    * Tool: record_technical_decision (Write tool - ADR-017)
-   * Records a technical decision or ADR from an AI agent or developer
+   * Records a technical decision or ADR from an AI agent or developer.
+   * Default status is 'proposed' so humans maintain review authority.
    */
   public recordTechnicalDecision(
     title: string,
     context: string,
     decision: string,
     rationale: string,
-    status: 'proposed' | 'accepted' = 'accepted'
+    status: 'proposed' | 'accepted' = 'proposed'
   ): string {
     const state = this.structuredStore.readState();
     if (!state) {

@@ -6,6 +6,7 @@ import {
   type StructuredMemoryState,
   type ArchitectureComponent,
   type SemanticMemoryChunk,
+  type KnowledgeDiscrepancy,
 } from '@project-memory/core';
 import { scanRepository } from './file-scanner.js';
 import { detectTechStack } from './tech-detector.js';
@@ -141,6 +142,66 @@ export class ProjectAnalyzer {
     const version = existingState?.identity.version ?? '0.1.0';
     const now = new Date().toISOString();
 
+    // Detect discrepancies (technology drift and orphaned file references)
+    const discrepancies: KnowledgeDiscrepancy[] = [];
+    const detectedTechLower = new Set(techStack.map((t) => t.name.toLowerCase()));
+    const trackedTech = ['redis', 'supabase', 'postgres', 'sqlite', 'mongodb', 'mysql', 'firebase', 'tailwind', 'graphql', 'prisma', 'drizzle'];
+
+    const scannedRelativePaths = new Set(files.map((f) => f.relativePath.replace(/\\/g, '/')));
+
+    for (const d of existingState?.decisions ?? []) {
+      const text = `${d.title} ${d.decision} ${d.rationale}`.toLowerCase();
+      
+      // 1. Dependency drift detection
+      for (const tech of trackedTech) {
+        if (text.includes(tech) && !Array.from(detectedTechLower).some((t) => t.includes(tech))) {
+          discrepancies.push({
+            id: `disc-${d.id}-${tech}`,
+            topic: `${tech.toUpperCase()} dependency drift`,
+            claimedByDoc: {
+              statement: `Decision ${d.id} ("${d.title}") mentions ${tech}, but ${tech} was not found in project dependencies.`,
+              source: d.source,
+            },
+            actualInCode: {
+              statement: `No ${tech} package or config detected in repository manifests.`,
+              source: { type: 'config', reference: 'package manifests' },
+            },
+            detectedAt: now,
+          });
+        }
+      }
+
+      // 2. Orphaned file reference detection (Risk #2: File rename / deletion without losing decision)
+      const ref = d.source?.reference?.replace(/\\/g, '/');
+      if (ref && (ref.startsWith('src/') || ref.startsWith('packages/') || ref.endsWith('.ts') || ref.endsWith('.js') || ref.endsWith('.go') || ref.endsWith('.rs') || ref.endsWith('.py'))) {
+        if (!scannedRelativePaths.has(ref) && !fs.existsSync(path.resolve(this.projectRoot, ref))) {
+          // Check for possible file renames (same directory or similar filename)
+          const targetBasename = path.basename(ref);
+          const targetDir = path.dirname(ref);
+          const candidate = files.find((f) => {
+            const fRel = f.relativePath.replace(/\\/g, '/');
+            return fRel.startsWith(targetDir) || path.basename(fRel) === targetBasename;
+          });
+
+          discrepancies.push({
+            id: `disc-orphan-${d.id}`,
+            topic: `Orphaned file reference in ${d.id}`,
+            claimedByDoc: {
+              statement: `Decision ${d.id} ("${d.title}") references "${ref}", but this file no longer exists.`,
+              source: d.source,
+            },
+            actualInCode: {
+              statement: candidate
+                ? `File "${ref}" was not found. Possible rename detected: "${candidate.relativePath.replace(/\\/g, '/')}".`
+                : `File "${ref}" was deleted or moved.`,
+              source: { type: 'source-code', reference: candidate ? candidate.relativePath.replace(/\\/g, '/') : ref },
+            },
+            detectedAt: now,
+          });
+        }
+      }
+    }
+
     const newState: StructuredMemoryState = {
       identity: {
         name: projectName,
@@ -155,7 +216,7 @@ export class ProjectAnalyzer {
       decisions: existingState?.decisions ?? [],
       notes: existingState?.notes ?? [],
       conventions: existingState?.conventions ?? [],
-      discrepancies: existingState?.discrepancies ?? [],
+      discrepancies,
     };
 
     structuredStore.saveState(newState);
