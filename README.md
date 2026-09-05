@@ -16,6 +16,7 @@ Built for developers. Designed for AI.
 <div align="center">
 
 [![npm version](https://img.shields.io/npm/v/emeory?style=flat-square&color=CB3837&logo=npm)](https://www.npmjs.com/package/emeory)
+[![CI](https://img.shields.io/github/actions/workflow/status/Abhinav-0709/emeory/ci.yml?branch=main&style=flat-square&logo=github&label=CI)](https://github.com/Abhinav-0709/emeory/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4+-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520.0-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-10+-F69220?style=flat-square&logo=pnpm&logoColor=white)](https://pnpm.io/)
