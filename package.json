@@ -1,0 +1,32 @@
+{
+  "name": "emeory",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Emeory — Portable, persistent memory layer for software projects and AI coding agents",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "pnpm -r run lint",
+    "clean": "pnpm -r run clean"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.19",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "keywords": [
+    "memory",
+    "ai-agent",
+    "mcp",
+    "context",
+    "llm",
+    "developer-tools"
+  ],
+  "author": "",
+  "license": "MIT"
+}

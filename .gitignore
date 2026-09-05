@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.npm/
+
+# Build outputs & caches
+dist/
+build/
+out/
+.next/
+.turbo/
+*.tsbuildinfo
+.tsbuildinfo
+
+# Tarballs & package packs
+*.tgz
+scratch_test_pack/
+test_pack.js
+
+# Local project memory files
+.project-memory/
+.emeory/
+
+# Local MCP setups generated during development
+.agents/
+.cursor/
+
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Coverage & testing
+coverage/
+.nyc_output/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+.vscode/*
+!.vscode/extensions.json
