@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "paths": {
+      "@project-memory/core": ["../core/dist/index.d.ts"],
+      "@project-memory/analyzer": ["../analyzer/dist/index.d.ts"],
+      "@project-memory/mcp": ["../mcp/dist/index.d.ts"],
+      "@project-memory/interview": ["../interview/dist/index.d.ts"]
+    }
+  },
+  "references": [
+    { "path": "../core" },
+    { "path": "../analyzer" },
+    { "path": "../mcp" },
+    { "path": "../interview" }
+  ],
+  "include": ["src/**/*"]
+}

@@ -1,0 +1,46 @@
+{
+  "name": "emeory",
+  "version": "0.1.4",
+  "description": "Emeory CLI — portable memory for software projects and AI coding agents",
+  "type": "module",
+  "bin": {
+    "emeory": "dist/index.js",
+    "project-memory": "dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@google/genai": "^2.21.0",
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "dotenv": "^17.4.2",
+    "groq-sdk": "^1.6.0",
+    "picocolors": "^1.1.1",
+    "zod": "^3.24.2"
+  },
+  "keywords": [
+    "cli",
+    "emeory",
+    "project-memory",
+    "developer-tools",
+    "ai-agent",
+    "mcp"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@project-memory/analyzer": "workspace:*",
+    "@project-memory/core": "workspace:*",
+    "@project-memory/interview": "workspace:*",
+    "@project-memory/mcp": "workspace:*",
+    "tsup": "^8.5.1"
+  }
+}
