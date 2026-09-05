@@ -1,0 +1,24 @@
+{
+  "name": "@project-memory/analyzer",
+  "version": "0.1.0",
+  "description": "Repository scanner, technology detector, and secret scanner for Project Memory",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@project-memory/core": "workspace:*"
+  },
+  "keywords": ["analyzer", "scanner", "memory"],
+  "license": "MIT"
+}
