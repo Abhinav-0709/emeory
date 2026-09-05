@@ -63,19 +63,35 @@ ${pc.bold('Commands:')}
 `);
 }
 
+export const CLI_VERSION = '0.1.6';
+
 export function handleInit(args: string[]): void {
   const cwd = process.cwd();
-  const projectName = args[0] || path.basename(cwd);
+  let projectName = args[0] || path.basename(cwd);
+  let projectVersion = '0.1.0';
+  let projectDescription = 'Software project managed with Emeory';
 
-  renderHeader('v0.1.0');
+  const pkgJsonPath = path.join(cwd, 'package.json');
+  if (fs.existsSync(pkgJsonPath)) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
+      if (!args[0] && pkg.name) projectName = pkg.name;
+      if (pkg.version) projectVersion = pkg.version;
+      if (pkg.description) projectDescription = pkg.description;
+    } catch {
+      // ignore
+    }
+  }
+
+  renderHeader(`v${CLI_VERSION}`);
 
   const store = new LocalStructuredMemoryStore({ projectRoot: cwd });
   const now = new Date().toISOString();
 
   const identity: ProjectIdentity = {
     name: projectName,
-    version: '0.1.0',
-    description: 'Software project managed with Emeory',
+    version: projectVersion,
+    description: projectDescription,
     rootPath: cwd,
     createdAt: now,
     updatedAt: now,
@@ -469,7 +485,13 @@ export async function handleAsk(args: string[]): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const [, , command, ...args] = process.argv;
+  const argv = process.argv;
+  if (argv.includes('-v') || argv.includes('--version') || argv.includes('-V')) {
+    console.log(`v${CLI_VERSION}`);
+    return;
+  }
+
+  const [, , command, ...args] = argv;
 
   switch (command) {
     case undefined: {
@@ -478,6 +500,12 @@ async function main(): Promise<void> {
       await ui.startInteractiveSession();
       break;
     }
+    case '-v':
+    case '-V':
+    case '--version':
+    case 'version':
+      console.log(`v${CLI_VERSION}`);
+      return;
     case 'init':
       handleInit(args);
       break;
@@ -540,14 +568,32 @@ async function main(): Promise<void> {
     case '-h':
       printHelp();
       break;
-    default:
+    default: {
+      // Natural language query fallback: e.g. `emeory what is this project about` or `emeory tell me about features`
+      const isNaturalLanguage =
+        args.length > 0 ||
+        /^(what|how|why|where|which|tell|explain|describe|show|is|are|who|can|does|do)\b/i.test(command);
+
+      if (isNaturalLanguage) {
+        await handleAsk([command, ...args]);
+        break;
+      }
+
       console.error(pc.red(`Unknown command: ${command}`));
       printHelp();
       process.exit(1);
+    }
   }
 }
 
-main().catch((err) => {
-  console.error('[Emeory] Fatal error:', err);
-  process.exit(1);
-});
+// Execute main() only when run directly as CLI, never when imported by test runner
+const isDirectRun =
+  process.argv[1] &&
+  !process.argv.some((arg) => arg.includes('--test') || arg.includes('test/'));
+
+if (isDirectRun) {
+  main().catch((err) => {
+    console.error('[Emeory] Fatal error:', err);
+    process.exit(1);
+  });
+}

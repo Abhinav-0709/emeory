@@ -67,11 +67,28 @@ updatedAt: ${chunk.updatedAt}
    * Keyword and token-based lexical similarity for zero-dependency local retrieval.
    * If embeddings are present, can calculate cosine similarity.
    */
+  /**
+   * Keyword, prefix, and token-based similarity with typo tolerance for zero-dependency local retrieval.
+   */
   public search(query: string, limit = 5): SearchResult[] {
     const chunks = this.getAllChunks();
     if (chunks.length === 0) return [];
 
-    const queryTokens = query.toLowerCase().split(/\W+/).filter(Boolean);
+    const TYPO_MAP: Record<string, string> = {
+      featue: 'feature',
+      featues: 'features',
+      featuers: 'features',
+      proejct: 'project',
+      projct: 'project',
+      arhcitecture: 'architecture',
+      architecure: 'architecture',
+      framerwork: 'framework',
+      conventon: 'convention',
+      convetion: 'convention',
+    };
+
+    const rawTokens = query.toLowerCase().split(/\W+/).filter(Boolean);
+    const queryTokens = rawTokens.map((t) => TYPO_MAP[t] || t);
 
     const scored: SearchResult[] = chunks.map((chunk) => {
       let score = 0;
@@ -80,9 +97,18 @@ updatedAt: ${chunk.updatedAt}
       const tagLower = chunk.tags.map((t) => t.toLowerCase());
 
       for (const token of queryTokens) {
-        if (titleLower.includes(token)) score += 3.0;
-        if (tagLower.includes(token)) score += 2.0;
+        // 1. Exact matches
+        if (titleLower.includes(token)) score += 4.0;
+        if (tagLower.some((t) => t === token)) score += 3.0;
+        else if (tagLower.some((t) => t.includes(token))) score += 2.0;
         if (contentLower.includes(token)) score += 1.0;
+
+        // 2. Prefix / stem matches for words length >= 4 (e.g. "feat" for "features", "capab" for "capabilities")
+        if (token.length >= 4) {
+          const stem = token.slice(0, 4);
+          if (titleLower.includes(stem)) score += 1.5;
+          if (tagLower.some((t) => t.startsWith(stem))) score += 1.5;
+        }
       }
 
       return { chunk, score };

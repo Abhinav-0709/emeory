@@ -32,6 +32,10 @@ export class AiEngine {
     return null;
   }
 
+  public hasAiProvider(): boolean {
+    return this.getAvailableProvider() !== null;
+  }
+
   /**
    * Generates a grounded answer using the smallest sufficient context (ADR-008, INSTRUCTIONS §11)
    */
@@ -39,8 +43,9 @@ export class AiEngine {
     query: string,
     context: RetrievedContext
   ): Promise<AnswerResult> {
-    // Fast path: If structured memory already provides a direct fact, return it with zero LLM tokens!
-    if (context.directAnswer && !context.assembledSummary.includes('[Knowledge')) {
+    // Fast path: Only short-circuit if no AI provider is configured OR if it's a strict deterministic lookup
+    const isStrictLookup = context.intent === 'fact_lookup' || context.intent === 'code_location';
+    if (context.directAnswer && (!this.hasAiProvider() || isStrictLookup) && !context.assembledSummary.includes('[Knowledge')) {
       return {
         answer: context.directAnswer,
         model: 'structured-memory-direct',

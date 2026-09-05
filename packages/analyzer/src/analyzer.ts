@@ -138,8 +138,39 @@ export class ProjectAnalyzer {
     const structuredStore = new LocalStructuredMemoryStore({ projectRoot: this.projectRoot });
     const existingState = structuredStore.readState();
 
-    const projectName = existingState?.identity.name ?? path.basename(this.projectRoot);
-    const version = existingState?.identity.version ?? '0.1.0';
+    // Inspect root package manifests or README for project identity & metadata
+    let realName = existingState?.identity.name;
+    let realVersion = existingState?.identity.version;
+    let realDescription = existingState?.identity.description;
+    let rootScripts: Record<string, string> | undefined;
+    let rootKeywords: string[] = [];
+
+    const rootPkgPath = path.join(this.projectRoot, 'package.json');
+    if (fs.existsSync(rootPkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf-8'));
+        if (pkg.name && (!realName || realName === path.basename(this.projectRoot))) {
+          realName = pkg.name;
+        }
+        if (pkg.version && (!realVersion || realVersion === '0.1.0')) {
+          realVersion = pkg.version;
+        }
+        if (pkg.description && (!realDescription || realDescription === 'Software project managed with Emeory' || realDescription === 'Analyzed software project')) {
+          realDescription = pkg.description;
+        }
+        if (pkg.scripts) {
+          rootScripts = pkg.scripts;
+        }
+        if (Array.isArray(pkg.keywords)) {
+          rootKeywords = pkg.keywords;
+        }
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+
+    const projectName = realName ?? path.basename(this.projectRoot);
+    const version = realVersion ?? '0.1.0';
     const now = new Date().toISOString();
 
     // Detect discrepancies (technology drift and orphaned file references)
@@ -175,26 +206,34 @@ export class ProjectAnalyzer {
       const ref = d.source?.reference?.replace(/\\/g, '/');
       if (ref && (ref.startsWith('src/') || ref.startsWith('packages/') || ref.endsWith('.ts') || ref.endsWith('.js') || ref.endsWith('.go') || ref.endsWith('.rs') || ref.endsWith('.py'))) {
         if (!scannedRelativePaths.has(ref) && !fs.existsSync(path.resolve(this.projectRoot, ref))) {
-          // Check for possible file renames (same directory or similar filename)
+          // Check for possible file renames (same directory or moved with same/similar name)
           const targetBasename = path.basename(ref);
+          const targetBaseNoExt = targetBasename.split('.')[0] || targetBasename;
           const targetDir = path.dirname(ref);
+
           const candidate = files.find((f) => {
             const fRel = f.relativePath.replace(/\\/g, '/');
-            return fRel.startsWith(targetDir) || path.basename(fRel) === targetBasename;
+            const fDir = path.dirname(fRel);
+            const fBase = path.basename(fRel);
+            if (fRel === ref) return false;
+            // 1. Same directory rename (e.g. login.ts -> signin.ts in src/auth)
+            if (fDir === targetDir) return true;
+            // 2. Moved to another directory with same basename or similar name
+            return fBase === targetBasename || (targetBaseNoExt.length >= 3 && fBase.includes(targetBaseNoExt));
           });
 
           discrepancies.push({
             id: `disc-orphan-${d.id}`,
-            topic: `Orphaned file reference in ${d.id}`,
+            topic: 'Orphaned file reference in decision',
             claimedByDoc: {
-              statement: `Decision ${d.id} ("${d.title}") references "${ref}", but this file no longer exists.`,
+              statement: `Decision ${d.id} ("${d.title}") references file "${ref}".`,
               source: d.source,
             },
             actualInCode: {
               statement: candidate
                 ? `File "${ref}" was not found. Possible rename detected: "${candidate.relativePath.replace(/\\/g, '/')}".`
                 : `File "${ref}" was deleted or moved.`,
-              source: { type: 'source-code', reference: candidate ? candidate.relativePath.replace(/\\/g, '/') : ref },
+              source: { type: 'source-code', reference: candidate ? candidate.relativePath : ref },
             },
             detectedAt: now,
           });
@@ -202,11 +241,61 @@ export class ProjectAnalyzer {
       }
     }
 
+    // Check README for description fallback and section parsing
+    const readmeFile = files.find((f) => /^readme\.md$/i.test(f.relativePath));
+    let readmeSections: Array<{ heading: string; content: string }> = [];
+
+    if (readmeFile) {
+      try {
+        const rawReadme = fs.readFileSync(readmeFile.absolutePath, 'utf-8');
+        // Extract first descriptive text for description if still generic
+        if (!realDescription || realDescription === 'Software project managed with Emeory' || realDescription === 'Analyzed software project') {
+          const lines = rawReadme.split('\n');
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('[') && !trimmed.startsWith('!') && !trimmed.startsWith('```')) {
+              realDescription = trimmed.replace(/^>\s*/, '').slice(0, 160);
+              break;
+            }
+          }
+        }
+
+        // Parse markdown sections
+        const lines = rawReadme.split('\n');
+        let currentHeading = 'Overview';
+        let currentLines: string[] = [];
+
+        for (const line of lines) {
+          const match = line.match(/^#{1,3}\s+(.+)$/);
+          if (match && match[1]) {
+            if (currentLines.length > 0) {
+              readmeSections.push({
+                heading: currentHeading,
+                content: currentLines.join('\n').trim(),
+              });
+              currentLines = [];
+            }
+            currentHeading = match[1].replace(/[\*_`]/g, '').trim();
+          } else {
+            currentLines.push(line);
+          }
+        }
+        if (currentLines.length > 0) {
+          readmeSections.push({
+            heading: currentHeading,
+            content: currentLines.join('\n').trim(),
+          });
+        }
+      } catch {
+        // ignore README read errors
+      }
+    }
+
     const newState: StructuredMemoryState = {
       identity: {
         name: projectName,
         version: version,
-        description: existingState?.identity.description ?? 'Analyzed software project',
+        description: realDescription || 'Software project managed with Emeory',
         rootPath: this.projectRoot,
         createdAt: existingState?.identity.createdAt ?? now,
         updatedAt: now,
@@ -240,17 +329,73 @@ export class ProjectAnalyzer {
       chunksCreated++;
     }
 
-    // 2. Readme chunk if README exists
-    const readmeFile = files.find((f) => /^readme\.md$/i.test(f.relativePath));
-    if (readmeFile) {
-      const readmeContent = fs.readFileSync(readmeFile.absolutePath, 'utf-8');
+    // 2. Structured README sections chunks
+    if (readmeSections.length > 0 && readmeFile) {
+      for (const [i, sec] of readmeSections.entries()) {
+        if (!sec || !sec.content || sec.content.length < 15) continue;
+
+        const hLower = sec.heading.toLowerCase();
+        let chunkId = `readme-sec-${i}`;
+        let category: SemanticMemoryChunk['category'] = 'setup';
+        let tags = ['readme', 'docs'];
+
+        if (/overview|about|intro|what is/i.test(hLower) || sec.heading === 'Overview') {
+          chunkId = 'project-readme-overview';
+          category = 'setup';
+          tags = ['overview', 'about', 'introduction', 'purpose', 'summary', 'project'];
+        } else if (/feature|capabilit|highlight|what (?:it|this) does|function/i.test(hLower)) {
+          chunkId = 'project-readme-features';
+          category = 'architecture';
+          tags = ['features', 'capabilities', 'highlights', 'functions', 'what it does'];
+        } else if (/architect|how it works|design|structure|data flow/i.test(hLower)) {
+          chunkId = 'project-readme-architecture';
+          category = 'architecture';
+          tags = ['architecture', 'design', 'structure', 'dataflow'];
+        } else if (/quickstart|get(?:ting)? started|usage|command|cli/i.test(hLower)) {
+          chunkId = 'project-readme-usage';
+          category = 'setup';
+          tags = ['usage', 'quickstart', 'commands', 'getting-started'];
+        }
+
+        const chunk: SemanticMemoryChunk = {
+          id: chunkId,
+          title: sec.heading,
+          category,
+          content: sec.content.slice(0, 3000),
+          tags,
+          sources: [{ type: 'documentation', reference: readmeFile.relativePath }],
+          updatedAt: now,
+        };
+        semanticStore.saveChunk(chunk);
+        chunksCreated++;
+      }
+    }
+
+    // 3. Project scripts & capabilities chunk
+    if (rootScripts && Object.keys(rootScripts).length > 0) {
+      const scriptEntries = Object.entries(rootScripts).map(([cmd, script]) => `- \`npm run ${cmd}\`: ${script}`);
       const chunk: SemanticMemoryChunk = {
-        id: 'project-readme-summary',
-        title: 'Project README Documentation',
+        id: 'project-runnable-tasks',
+        title: 'Project Commands & Runnable Tasks',
         category: 'setup',
-        content: readmeContent.slice(0, 2000), // First 2000 characters for token efficiency
-        tags: ['readme', 'docs', 'overview'],
-        sources: [{ type: 'documentation', reference: readmeFile.relativePath }],
+        content: `Available runnable tasks in project package manifest:\n${scriptEntries.join('\n')}`,
+        tags: ['scripts', 'commands', 'tasks', 'run', 'capabilities', 'features'],
+        sources: [{ type: 'config', reference: 'package.json' }],
+        updatedAt: now,
+      };
+      semanticStore.saveChunk(chunk);
+      chunksCreated++;
+    }
+
+    // 4. Project keywords / domain tags
+    if (rootKeywords.length > 0) {
+      const chunk: SemanticMemoryChunk = {
+        id: 'project-keywords-domain',
+        title: 'Project Domain & Topic Keywords',
+        category: 'architecture',
+        content: `Project topic tags: ${rootKeywords.join(', ')}`,
+        tags: ['keywords', 'tags', 'topics', ...rootKeywords],
+        sources: [{ type: 'config', reference: 'package.json' }],
         updatedAt: now,
       };
       semanticStore.saveChunk(chunk);

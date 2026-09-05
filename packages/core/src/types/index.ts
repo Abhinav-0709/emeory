@@ -148,6 +148,7 @@ export interface SemanticMemoryChunk {
  */
 export type QueryIntent =
   | 'fact_lookup'        // Simple factual questions ("What database is used?")
+  | 'feature_query'       // Features & capabilities ("What are the features?", "What can this project do?")
   | 'architecture_query'// Structural questions ("How does worker communicate?")
   | 'decision_query'    // "Why was X chosen?" or "What decisions did we make?"
   | 'convention_query'  // "What conventions or coding rules do we follow?"

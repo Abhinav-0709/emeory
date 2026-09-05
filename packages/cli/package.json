@@ -1,6 +1,6 @@
 {
   "name": "emeory",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Emeory CLI — portable memory for software projects and AI coding agents",
   "type": "module",
   "bin": {

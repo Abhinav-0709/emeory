@@ -369,7 +369,7 @@ export function getQuickCommandsBoxLines(width = 54): string[] {
 export function getStatusBoxLines(
   state: StructuredMemoryState,
   filesCount: number,
-  mcpDisplay: string = pc.green('ready') + pc.dim(' (Cursor & Antigravity)'),
+  mcpDisplay: string = pc.green('ready'),
   _webUrl = 'http://localhost:3000',
   width = 72,
   targetHeight = 15

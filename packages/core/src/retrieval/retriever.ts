@@ -93,6 +93,22 @@ export class MemoryRetriever {
   public classifyIntent(query: string): QueryIntent {
     const q = query.toLowerCase();
 
+    // 0. Features & Capabilities
+    if (
+      q.includes('feature') ||
+      q.includes('featue') ||
+      q.includes('capability') ||
+      q.includes('capabilities') ||
+      q.includes('what can it do') ||
+      q.includes('what does it do') ||
+      q.includes('what does this project do') ||
+      q.includes('what can this project do') ||
+      q.includes('highlights') ||
+      q.includes('what is this project used for')
+    ) {
+      return 'feature_query';
+    }
+
     // 1. Technical Decisions / ADRs
     if (
       q.includes('decision') ||
@@ -422,65 +438,124 @@ export class MemoryRetriever {
       }
     }
 
-    // ── 6. Project Overview / Broad General Context ─────────────────────────
-    if (
-      intent === 'general_context' &&
-      state &&
-      (q.includes('what') || q.includes('tell') || q.includes('about') || q.includes('remember') || q.includes('overview') || q.includes('summary'))
-    ) {
-      const summaryParts = [`Project Overview: ${state.identity.name} (v${state.identity.version})`];
-      if (state.identity.description) {
-        summaryParts.push(`Description: ${state.identity.description}`);
+    // ── 5.5 Feature & Capabilities Query ──────────────────────────────────
+    if (intent === 'feature_query' && state) {
+      const allChunks = this.semanticStore.getAllChunks();
+      const featureChunk = allChunks.find((c) => c.id === 'project-readme-features' || c.tags.includes('features'));
+      const taskChunk = allChunks.find((c) => c.id === 'project-runnable-tasks');
+
+      const lines: string[] = [`Key Features & Capabilities of ${state.identity.name}:`];
+
+      if (featureChunk) {
+        lines.push(`\n${cleanChunkContent(featureChunk.content, 1200)}`);
       }
-      if (state.techStack.length > 0) {
-        summaryParts.push(`Tech Stack: ${state.techStack.map((t) => `${t.name} (${t.category})`).join(', ')}`);
+
+      if (state.components && state.components.length > 0) {
+        lines.push('\nCore Modules & Responsibilities:');
+        for (const c of state.components) {
+          lines.push(`• ${c.name}: ${c.description || (c.responsibilities && c.responsibilities.join(', ')) || 'Module'}`);
+        }
       }
-      if (state.components.length > 0) {
-        summaryParts.push(`Components: ${state.components.map((c) => c.name).join(', ')}`);
+
+      if (taskChunk) {
+        lines.push(`\n${taskChunk.content}`);
       }
-      summaryParts.push(`Recorded Memory: ${state.decisions.length} decisions, ${state.notes.length} notes, ${state.conventions.length} conventions`);
-      directAnswer = summaryParts.join('\n');
+
+      if (!featureChunk && (!state.components || state.components.length === 0)) {
+        if (state.identity.description) {
+          lines.push(`• ${state.identity.description}`);
+        }
+        lines.push('No detailed feature list recorded. Add features in README.md or record notes with "emeory add".');
+      }
+
+      directAnswer = lines.join('\n');
     }
 
-    // ── 7. Semantic Chunks Retrieval (Filtered & Scored) ────────────────────
-    let semanticMatches: SearchResult[] = [];
-    if (!directAnswer) {
-      const allMatches = this.semanticStore.search(query, 3);
-      semanticMatches = allMatches.filter((m) => m.score >= 2.0);
+    // ── 6. Project Overview / Broad General Context ─────────────────────────
+    if (intent === 'general_context' && state) {
+      const isExclusionQuery = q.includes('other than') || q.includes('more than') || q.includes('beyond') || q.includes('detail');
+      const allChunks = this.semanticStore.getAllChunks();
+      const overviewChunk = allChunks.find((c) => c.id === 'project-readme-overview' || c.tags.includes('overview'));
+      const featureChunk = allChunks.find((c) => c.id === 'project-readme-features');
+
+      if (isExclusionQuery) {
+        const detailLines: string[] = [`Detailed Context for ${state.identity.name}:`];
+        if (overviewChunk) {
+          detailLines.push(`\n[Purpose & Background]:\n${cleanChunkContent(overviewChunk.content, 600)}`);
+        }
+        if (featureChunk) {
+          detailLines.push(`\n[Features & Capabilities]:\n${cleanChunkContent(featureChunk.content, 600)}`);
+        }
+        if (state.components.length > 0) {
+          detailLines.push('\n[Components]:');
+          for (const c of state.components) {
+            detailLines.push(`• ${c.name}: ${c.description || 'Module'} (Entrypoints: ${c.entrypoints?.join(', ') || 'N/A'})`);
+          }
+        }
+        if (state.decisions.length > 0) {
+          detailLines.push('\n[Recent Decisions]:');
+          for (const d of state.decisions.slice(0, 3)) {
+            detailLines.push(`• ${d.title}: ${d.decision}`);
+          }
+        }
+        directAnswer = detailLines.join('\n');
+      } else if (q.includes('what') || q.includes('tell') || q.includes('about') || q.includes('remember') || q.includes('overview') || q.includes('summary')) {
+        const summaryParts = [`Project: ${state.identity.name} (v${state.identity.version})`];
+        if (state.identity.description) {
+          summaryParts.push(`Description: ${state.identity.description}`);
+        }
+        if (overviewChunk && !summaryParts.some((p) => p.includes(overviewChunk.content.slice(0, 40)))) {
+          summaryParts.push(`\nAbout:\n${cleanChunkContent(overviewChunk.content, 400)}`);
+        }
+        if (state.techStack.length > 0) {
+          summaryParts.push(`\nTech Stack: ${state.techStack.map((t) => `${t.name} (${t.category})`).join(', ')}`);
+        }
+        if (state.components.length > 0) {
+          summaryParts.push(`Components: ${state.components.map((c) => c.name).join(', ')}`);
+        }
+        summaryParts.push(`Recorded Memory: ${state.decisions.length} decisions, ${state.notes.length} notes, ${state.conventions.length} conventions`);
+        directAnswer = summaryParts.join('\n');
+      }
     }
+
+    // ── 7. Semantic Chunks Retrieval (Always populated for rich context) ────
+    const allMatches = this.semanticStore.search(query, 4);
+    const semanticMatches: SearchResult[] = allMatches.filter((m) => m.score >= 1.5);
 
     // ── 8. Assembled Output Generation ──────────────────────────────────────
     const summaryLines: string[] = [];
 
     if (directAnswer) {
       summaryLines.push(directAnswer);
-    } else {
-      if (retrievedFacts.techStack && retrievedFacts.techStack.length > 0) {
-        summaryLines.push(
-          `[Tech Stack]: ${retrievedFacts.techStack.map((t) => `${t.name} (${t.category})`).join(', ')}`
-        );
-      }
+    }
 
-      if (retrievedFacts.decisions && retrievedFacts.decisions.length > 0) {
-        for (const d of retrievedFacts.decisions) {
-          summaryLines.push(`[Decision ${d.id}]: ${d.title} — Rationale: ${d.rationale}`);
-        }
-      }
+    if (retrievedFacts.techStack && retrievedFacts.techStack.length > 0 && !directAnswer?.includes('Tech Stack:')) {
+      summaryLines.push(
+        `[Tech Stack]: ${retrievedFacts.techStack.map((t) => `${t.name} (${t.category})`).join(', ')}`
+      );
+    }
 
-      if (retrievedFacts.components && retrievedFacts.components.length > 0) {
-        for (const c of retrievedFacts.components) {
-          summaryLines.push(`[Component ${c.name}]: ${c.description}`);
-        }
+    if (retrievedFacts.decisions && retrievedFacts.decisions.length > 0) {
+      for (const d of retrievedFacts.decisions) {
+        summaryLines.push(`[Decision ${d.id}]: ${d.title} — Rationale: ${d.rationale}`);
       }
+    }
 
-      if (semanticMatches.length > 0) {
-        for (const res of semanticMatches) {
-          const cleanContent = cleanChunkContent(res.chunk.content);
+    if (retrievedFacts.components && retrievedFacts.components.length > 0 && !directAnswer?.includes('Components:')) {
+      for (const c of retrievedFacts.components) {
+        summaryLines.push(`[Component ${c.name}]: ${c.description}`);
+      }
+    }
+
+    if (semanticMatches.length > 0) {
+      for (const res of semanticMatches) {
+        const cleanContent = cleanChunkContent(res.chunk.content);
+        if (!summaryLines.some((l) => l.includes(cleanContent.slice(0, 50)))) {
           summaryLines.push(`[Knowledge (${res.chunk.title})]:\n${cleanContent}`);
         }
-      } else if (!directAnswer) {
-        summaryLines.push('No matching context found in project memory for this query.');
       }
+    } else if (!directAnswer) {
+      summaryLines.push('No matching context found in project memory for this query.');
     }
 
     return {

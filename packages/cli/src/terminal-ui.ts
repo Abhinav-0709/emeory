@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 import * as readline from 'node:readline';
 import * as process from 'node:process';
 import pc from 'picocolors';
@@ -156,12 +157,33 @@ export class TerminalUi {
           break;
 
         case 'mcp': {
+          const cursorMcp = path.join(this.projectRoot, '.cursor', 'mcp.json');
+          const agentsMcp = path.join(this.projectRoot, '.agents', 'mcp_config.json');
+          const userHome = process.env.USERPROFILE || process.env.HOME || '';
+          const globalMcp = path.join(userHome, '.gemini', 'config', 'mcp_config.json');
+
+          const hasCursor = fs.existsSync(cursorMcp);
+          const hasAgents = fs.existsSync(agentsMcp);
+          const hasGlobal = fs.existsSync(globalMcp);
+
           console.log(pc.cyan('\n┌─ Emeory MCP Server ──────────────────────────────────────────┐'));
           console.log(pc.cyan('│') + '  ' + pc.green('●') + ' ' + pc.bold('Status:      ') + pc.green('Ready & Connected via stdio').padEnd(46) + pc.cyan('│'));
           console.log(pc.cyan('│') + '                                                                ' + pc.cyan('│'));
           console.log(pc.cyan('│') + '  ' + pc.dim('Configured Clients:') + '                                           ' + pc.cyan('│'));
-          console.log(pc.cyan('│') + '    ' + pc.green('✔') + ' ' + pc.white('Antigravity:') + ' ' + pc.dim('.agents/mcp_config.json & global').padEnd(46) + pc.cyan('│'));
-          console.log(pc.cyan('│') + '    ' + pc.green('✔') + ' ' + pc.white('Cursor:     ') + ' ' + pc.dim('.cursor/mcp.json').padEnd(46) + pc.cyan('│'));
+
+          if (hasAgents || hasGlobal) {
+            const loc = hasAgents ? '.agents/mcp_config.json' : 'global Antigravity';
+            console.log(pc.cyan('│') + '    ' + pc.green('✔') + ' ' + pc.white('Antigravity:') + ' ' + pc.dim(loc).padEnd(46) + pc.cyan('│'));
+          } else {
+            console.log(pc.cyan('│') + '    ' + pc.dim('○') + ' ' + pc.white('Antigravity:') + ' ' + pc.dim('not configured (run mcp:setup)').padEnd(46) + pc.cyan('│'));
+          }
+
+          if (hasCursor) {
+            console.log(pc.cyan('│') + '    ' + pc.green('✔') + ' ' + pc.white('Cursor:     ') + ' ' + pc.dim('.cursor/mcp.json').padEnd(46) + pc.cyan('│'));
+          } else {
+            console.log(pc.cyan('│') + '    ' + pc.dim('○') + ' ' + pc.white('Cursor:     ') + ' ' + pc.dim('not configured (run mcp:setup)').padEnd(46) + pc.cyan('│'));
+          }
+
           console.log(pc.cyan('│') + '                                                                ' + pc.cyan('│'));
           console.log(pc.cyan('│') + '  ' + pc.dim('Registered Tools:') + '                                             ' + pc.cyan('│'));
           console.log(pc.cyan('│') + '    • ' + pc.magenta('get_project_context') + pc.dim('      Overview of stack & components') + '       ' + pc.cyan('│'));
