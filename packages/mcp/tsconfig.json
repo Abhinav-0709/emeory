@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "paths": {
+      "@project-memory/core": ["../core/dist/index.d.ts"]
+    }
+  },
+  "references": [
+    { "path": "../core" }
+  ],
+  "include": ["src/**/*"]
+}
